@@ -45,7 +45,7 @@ interface TaggingUtility
 	 *
 	 * @param string $tagString
 	 */
-	public function decrementCount($tagString, $tagSlug, $count);
+	public function decrementCount($tagId, $count);
 	
 	/**
 	 * Look at the tags table and delete any tags that are no londer in use by any taggable database rows.

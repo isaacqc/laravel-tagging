@@ -174,20 +174,21 @@ class Util implements TaggingUtility
 		
 		$tag->count = $tag->count + $count;
 		$tag->save();
+
+		return $tag->id;
 	}
 	
 	/**
 	 * Private! Please do not call this function directly, let the Tag library use it.
 	 * Decrement count of tag by one. This function will create tag record if it does not exist.
 	 *
-	 * @param string $tagString
 	 */
-	public function decrementCount($tagString, $tagSlug, $count)
+	public function decrementCount($tagId, $count)
 	{
 		if($count <= 0) { return; }
 		$model = $this->tagModelString();
 		
-		$tag = $model::where('slug', '=', $tagSlug)->first();
+		$tag = $model::where('id', '=', $tagId)->first();
 	
 		if($tag) {
 			$tag->count = $tag->count - $count;

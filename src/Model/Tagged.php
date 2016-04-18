@@ -10,7 +10,7 @@ class Tagged extends Eloquent
 {
 	protected $table = 'tagging_tagged';
 	public $timestamps = false;
-	protected $fillable = ['tag_name', 'tag_slug'];
+	protected $fillable = ['tag_id'];
 	protected $taggingUtility;
 
 	public function __construct(array $attributes = array())
@@ -38,7 +38,7 @@ class Tagged extends Eloquent
 	public function tag()
 	{
 		$model = $this->taggingUtility->tagModelString();
-		return $this->belongsTo($model, 'tag_slug', 'slug');
+		return $this->belongsTo($model, 'tag_id', 'id');
 	}
 
 }

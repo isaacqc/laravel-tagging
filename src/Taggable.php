@@ -5,6 +5,7 @@ namespace Conner\Tagging;
 use Conner\Tagging\Contracts\TaggingUtility;
 use Conner\Tagging\Events\TagAdded;
 use Conner\Tagging\Events\TagRemoved;
+use Conner\Tagging\Model\Tag;
 use Conner\Tagging\Model\Tagged;
 use Illuminate\Database\Eloquent\Collection;
 
@@ -108,7 +109,7 @@ trait Taggable
 	public function tagNames()
 	{
 		return $this->tagged->map(function($item){
-			return $item->tag_name;
+			return $item->tag->name;
 		})->toArray();
 	}
 
@@ -120,7 +121,7 @@ trait Taggable
 	public function tagSlugs()
 	{
 		return $this->tagged->map(function($item){
-			return $item->tag_slug;
+			return $item->tag->slug;
 		})->toArray();
 	}
 	
@@ -178,24 +179,27 @@ trait Taggable
 			array_shift($tagNames);
 		}
 		
-		$tagNames = static::$taggingUtility->makeTagArray($tagNames);
-		
-		$normalizer = config('tagging.normalizer');
-		$normalizer = $normalizer ?: [static::$taggingUtility, 'slug'];
 		$className = $query->getModel()->getMorphClass();
 
+		// prepare normalizer
+		$tagNames = static::$taggingUtility->makeTagArray($tagNames);
+		$normalizer = config('tagging.normalizer');
+		$normalizer = $normalizer ?: [static::$taggingUtility, 'slug'];
+
+
 		foreach($tagNames as $tagSlug) {
-			$tags = Tagged::where('tag_slug', call_user_func($normalizer, $tagSlug))
+			$taggeds = Tagged::join('tagging_tags', 'tag_id', '=', 'tagging_tags.id')
+				->where('slug', call_user_func($normalizer, $tagSlug))
 				->where('taggable_type', $className)
 				->lists('taggable_id');
 		
 			$primaryKey = $this->getKeyName();
-			$query->whereIn($this->getTable().'.'.$primaryKey, $tags);
+			$query->whereIn($this->getTable().'.'.$primaryKey, $taggeds);
 		}
 		
 		return $query;
 	}
-		
+	
 	/**
 	 * Filter model to subset with the given tags
 	 *
@@ -207,21 +211,22 @@ trait Taggable
 			$tagNames = func_get_args();
 			array_shift($tagNames);
 		}
-		
+
+		$className = $query->getModel()->getMorphClass();
+
+		// normalize tag names
 		$tagNames = static::$taggingUtility->makeTagArray($tagNames);
-		
 		$normalizer = config('tagging.normalizer');
 		$normalizer = $normalizer ?: [static::$taggingUtility, 'slug'];
-		
 		$tagNames = array_map($normalizer, $tagNames);
-		$className = $query->getModel()->getMorphClass();
-		
-		$tags = Tagged::whereIn('tag_slug', $tagNames)
+
+		$taggeds = Tagged::join('tagging_tags', 'tag_id', '=', 'tagging_tags.id')
+			->whereIn('slug', $tagNames)
 			->where('taggable_type', $className)
 			->lists('taggable_id');
 		
 		$primaryKey = $this->getKeyName();
-		return $query->whereIn($this->getTable().'.'.$primaryKey, $tags);
+		return $query->whereIn($this->getTable().'.'.$primaryKey, $taggeds);
 	}
 	
 	/**
@@ -231,28 +236,36 @@ trait Taggable
 	 */
 	private function addTag($tagName)
 	{
+
+		// normalize tag name into slug
 		$tagName = trim($tagName);
-		
 		$normalizer = config('tagging.normalizer');
 		$normalizer = $normalizer ?: [static::$taggingUtility, 'slug'];
-
 		$tagSlug = call_user_func($normalizer, $tagName);
 		
-		$previousCount = $this->tagged()->where('tag_slug', '=', $tagSlug)->take(1)->count();
-		if($previousCount >= 1) { return; }
+		// find the tag
+		$tag = Tag::where('slug', '=', $tagSlug)->first();
+
+		// if tag exists, find the tagged exists
+		if ($tag) {
+
+			// if tagged is found
+			$previousCount = $this->tagged()->where('tag_id', '=', $tag->id)->take(1)->count();
+			if($previousCount >= 1) { return; }
+		}
 		
 		$displayer = config('tagging.displayer');
 		$displayer = empty($displayer) ? '\Illuminate\Support\Str::title' : $displayer;
 		
+		// incrememt count of the tag
+		$tagId = static::$taggingUtility->incrementCount($tagName, $tagSlug, 1);
+
+		// create tagged for this taggable
 		$tagged = new Tagged(array(
-			'tag_name'=>call_user_func($displayer, $tagName),
-			'tag_slug'=>$tagSlug,
+			'tag_id'=>$tagId,
 		));
-		
 		$this->tagged()->save($tagged);
 
-		static::$taggingUtility->incrementCount($tagName, $tagSlug, 1);
-		
 		unset($this->relations['tagged']);
 		event(new TagAdded($this));
 	}
@@ -264,19 +277,27 @@ trait Taggable
 	 */
 	private function removeTag($tagName)
 	{
+
+		// normalize tag name into slug
 		$tagName = trim($tagName);
-		
 		$normalizer = config('tagging.normalizer');
 		$normalizer = $normalizer ?: [static::$taggingUtility, 'slug'];
-		
 		$tagSlug = call_user_func($normalizer, $tagName);
 		
-		if($count = $this->tagged()->where('tag_slug', '=', $tagSlug)->delete()) {
-			static::$taggingUtility->decrementCount($tagName, $tagSlug, $count);
+		// find the tag
+		$tag = Tag::where('slug', '=', $tagSlug)->first();
+
+		// if tag exists, find the tagged exists
+		if ($tag) {
+
+			// decrememnt count of tag if tagged can be removed
+			if($count = $this->tagged()->where('tag_id', '=', $tag->id)->delete()) {
+				static::$taggingUtility->decrementCount($tag->id, $count);
+			}
+			
+			unset($this->relations['tagged']);
+			event(new TagRemoved($this));
 		}
-		
-		unset($this->relations['tagged']);
-		event(new TagRemoved($this));
 	}
 
 	/**
@@ -287,10 +308,10 @@ trait Taggable
 	public static function existingTags()
 	{
 		return Tagged::distinct()
-			->join('tagging_tags', 'tag_slug', '=', 'tagging_tags.slug')
+			->join('tagging_tags', 'tag_id', '=', 'tagging_tags.id')
 			->where('taggable_type', '=', (new static)->getMorphClass())
-			->orderBy('tag_slug', 'ASC')
-			->get(array('tag_slug as slug', 'tag_name as name', 'tagging_tags.count as count'));
+			->orderBy('slug', 'ASC')
+			->get(array('slug as slug', 'name as name', 'count as count'));
 	}
 	
 	/**
