@@ -92,12 +92,12 @@ trait Taggable
 	 *
 	 * @param $tagName string or array
 	 */
-	public function tag($tagNames)
+	public function tag($tagNames, $tagCategory = null)
 	{
 		$tagNames = static::$taggingUtility->makeTagArray($tagNames);
 		
 		foreach($tagNames as $tagName) {
-			$this->addTag($tagName);
+			$this->addTag($tagName, $tagCategory);
 		}
 	}
 	
@@ -106,11 +106,15 @@ trait Taggable
 	 *
 	 * @return array
 	 */
-	public function tagNames()
+	public function tagNames($tagCategory = null)
 	{
-		return $this->tagged->map(function($item){
-			return $item->tag->name;
-		})->toArray();
+		return $this->tagged
+			->filter(function ($item) use ($tagCategory) {
+				return $item->tag->category == $tagCategory;
+			})
+			->map(function($item){
+				return $item->tag->name;
+			})->toArray();
 	}
 
 	/**
@@ -118,11 +122,15 @@ trait Taggable
 	 *
 	 * @return array
 	 */
-	public function tagSlugs()
+	public function tagSlugs($tagCategory = null)
 	{
-		return $this->tagged->map(function($item){
-			return $item->tag->slug;
-		})->toArray();
+		return $this->tagged
+			->filter(function ($item) use ($tagCategory) {
+				return $item->tag->category == $tagCategory;
+			})
+			->map(function($item){
+				return $item->tag->slug;
+			})->toArray();
 	}
 	
 	/**
@@ -130,7 +138,7 @@ trait Taggable
 	 *
 	 * @param $tagName string or array (or null to remove all tags)
 	 */
-	public function untag($tagNames=null)
+	public function untag($tagNames=null, $tagCategory = null)
 	{
 		if(is_null($tagNames)) {
 			$tagNames = $this->tagNames();
@@ -139,7 +147,7 @@ trait Taggable
 		$tagNames = static::$taggingUtility->makeTagArray($tagNames);
 		
 		foreach($tagNames as $tagName) {
-			$this->removeTag($tagName);
+			$this->removeTag($tagName, $tagCategory);
 		}
 		
 		if(static::shouldDeleteUnused()) {
@@ -152,7 +160,7 @@ trait Taggable
 	 *
 	 * @param $tagName string or array
 	 */
-	public function retag($tagNames)
+	public function retag($tagNames, $tagCategory = null)
 	{
 		$tagNames = static::$taggingUtility->makeTagArray($tagNames);
 		$currentTagNames = $this->tagNames();
@@ -160,10 +168,10 @@ trait Taggable
 		$deletions = array_diff($currentTagNames, $tagNames);
 		$additions = array_diff($tagNames, $currentTagNames);
 		
-		$this->untag($deletions);
+		$this->untag($deletions, $tagCategory);
 
 		foreach($additions as $tagName) {
-			$this->addTag($tagName);
+			$this->addTag($tagName, $tagCategory);
 		}
 	}
 	
@@ -172,7 +180,7 @@ trait Taggable
 	 *
 	 * @param $tagNames array|string
 	 */
-	public function scopeWithAllTags($query, $tagNames)
+	public function scopeWithAllTags($query, $tagNames, $tagCategory = null)
 	{
 		if(!is_array($tagNames)) {
 			$tagNames = func_get_args();
@@ -190,6 +198,7 @@ trait Taggable
 		foreach($tagNames as $tagSlug) {
 			$taggeds = Tagged::join('tagging_tags', 'tag_id', '=', 'tagging_tags.id')
 				->where('slug', call_user_func($normalizer, $tagSlug))
+				->where('category', '=', $tagCategory)
 				->where('taggable_type', $className)
 				->lists('taggable_id');
 		
@@ -205,7 +214,7 @@ trait Taggable
 	 *
 	 * @param $tagNames array|string
 	 */
-	public function scopeWithAnyTag($query, $tagNames)
+	public function scopeWithAnyTag($query, $tagNames, $tagCategory = null)
 	{
 		if(!is_array($tagNames)) {
 			$tagNames = func_get_args();
@@ -222,6 +231,7 @@ trait Taggable
 
 		$taggeds = Tagged::join('tagging_tags', 'tag_id', '=', 'tagging_tags.id')
 			->whereIn('slug', $tagNames)
+			->where('category', '=', $tagCategory)
 			->where('taggable_type', $className)
 			->lists('taggable_id');
 		
@@ -234,7 +244,7 @@ trait Taggable
 	 *
 	 * @param $tagName string
 	 */
-	private function addTag($tagName)
+	private function addTag($tagName, $tagCategory = null)
 	{
 
 		// normalize tag name into slug
@@ -244,7 +254,9 @@ trait Taggable
 		$tagSlug = call_user_func($normalizer, $tagName);
 		
 		// find the tag
-		$tag = Tag::where('slug', '=', $tagSlug)->first();
+		$tag = Tag::where('slug', '=', $tagSlug)
+			->where('category', '=', $tagCategory)
+			->first();
 
 		// if tag exists, find the tagged exists
 		if ($tag) {
@@ -258,7 +270,7 @@ trait Taggable
 		$displayer = empty($displayer) ? '\Illuminate\Support\Str::title' : $displayer;
 		
 		// incrememt count of the tag
-		$tagId = static::$taggingUtility->incrementCount($tagName, $tagSlug, 1);
+		$tagId = static::$taggingUtility->incrementCount($tagName, $tagSlug, $tagCategory);
 
 		// create tagged for this taggable
 		$tagged = new Tagged(array(
@@ -275,7 +287,7 @@ trait Taggable
 	 *
 	 * @param $tagName string
 	 */
-	private function removeTag($tagName)
+	private function removeTag($tagName, $tagCategory = null)
 	{
 
 		// normalize tag name into slug
@@ -285,14 +297,16 @@ trait Taggable
 		$tagSlug = call_user_func($normalizer, $tagName);
 		
 		// find the tag
-		$tag = Tag::where('slug', '=', $tagSlug)->first();
+		$tag = Tag::where('slug', '=', $tagSlug)
+			->where('category', '=', $tagCategory)
+			->first();
 
 		// if tag exists, find the tagged exists
 		if ($tag) {
 
 			// decrememnt count of tag if tagged can be removed
-			if($count = $this->tagged()->where('tag_id', '=', $tag->id)->delete()) {
-				static::$taggingUtility->decrementCount($tag->id, $count);
+			if($this->tagged()->where('tag_id', '=', $tag->id)->delete()) {
+				static::$taggingUtility->decrementCount($tag->id);
 			}
 			
 			unset($this->relations['tagged']);
@@ -305,10 +319,11 @@ trait Taggable
 	 *
 	 * @return Collection
 	 */
-	public static function existingTags()
+	public static function existingTags($tagCategory = null)
 	{
 		return Tagged::distinct()
 			->join('tagging_tags', 'tag_id', '=', 'tagging_tags.id')
+			->where('category', '=', $tagCategory)
 			->where('taggable_type', '=', (new static)->getMorphClass())
 			->orderBy('slug', 'ASC')
 			->get(array('slug as slug', 'name as name', 'count as count'));

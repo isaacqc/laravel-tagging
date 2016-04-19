@@ -9,6 +9,7 @@ class CreateTagsTable extends Migration {
 	{
 		Schema::create('tagging_tags', function(Blueprint $table) {
 			$table->increments('id');
+			$table->string('category')->nullable()->index();
 			$table->string('slug', 255)->index();
 			$table->string('name', 255);
 			$table->boolean('suggest')->default(false);
