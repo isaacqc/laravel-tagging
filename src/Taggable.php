@@ -82,9 +82,9 @@ trait Taggable
 	 *
 	 * @param string $value
 	 */
-	public function getTagNamesAttribute($value)
+	public function getTagNamesAttribute($value, $tagCategory = null)
 	{
-		return implode(', ', $this->tagNames());
+		return implode(', ', $this->tagNames($tagCategory));
 	}
 	
 	/**
@@ -110,7 +110,7 @@ trait Taggable
 	{
 		return $this->tagged
 			->filter(function ($item) use ($tagCategory) {
-				return $item->tag->category == $tagCategory;
+				return $item->tag && $item->tag->category == $tagCategory;
 			})
 			->map(function($item){
 				return $item->tag->name;
@@ -126,7 +126,7 @@ trait Taggable
 	{
 		return $this->tagged
 			->filter(function ($item) use ($tagCategory) {
-				return $item->tag->category == $tagCategory;
+				return $item->tag && $item->tag->category == $tagCategory;
 			})
 			->map(function($item){
 				return $item->tag->slug;
@@ -141,7 +141,7 @@ trait Taggable
 	public function untag($tagNames=null, $tagCategory = null)
 	{
 		if(is_null($tagNames)) {
-			$tagNames = $this->tagNames();
+			$tagNames = $this->tagNames($tagCategory);
 		}
 		
 		$tagNames = static::$taggingUtility->makeTagArray($tagNames);
@@ -162,8 +162,9 @@ trait Taggable
 	 */
 	public function retag($tagNames, $tagCategory = null)
 	{
+
 		$tagNames = static::$taggingUtility->makeTagArray($tagNames);
-		$currentTagNames = $this->tagNames();
+		$currentTagNames = $this->tagNames($tagCategory);
 		
 		$deletions = array_diff($currentTagNames, $tagNames);
 		$additions = array_diff($tagNames, $currentTagNames);
@@ -253,6 +254,10 @@ trait Taggable
 		$normalizer = $normalizer ?: [static::$taggingUtility, 'slug'];
 		$tagSlug = call_user_func($normalizer, $tagName);
 		
+		// abort if tagName is empty
+		if (empty($tagName))
+			return;
+
 		// find the tag
 		$tag = Tag::where('slug', '=', $tagSlug)
 			->where('category', '=', $tagCategory)
