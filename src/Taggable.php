@@ -42,7 +42,7 @@ trait Taggable
 	{
 		if(static::untagOnDelete()) {
 			static::deleting(function($model) {
-				$model->untag();
+				$model->untag(); //TODO: need a fix to remove all taggable's tagged regardless of category
 			});
 		}
 
@@ -181,12 +181,8 @@ trait Taggable
 	 *
 	 * @param $tagNames array|string
 	 */
-	public function scopeWithAllTags($query, $tagNames, $tagCategory = null)
+	public function scopeWithAllTags($query, array $tagNames, $tagCategory = null)
 	{
-		if(!is_array($tagNames)) {
-			$tagNames = func_get_args();
-			array_shift($tagNames);
-		}
 		
 		$className = $query->getModel()->getMorphClass();
 
@@ -215,12 +211,8 @@ trait Taggable
 	 *
 	 * @param $tagNames array|string
 	 */
-	public function scopeWithAnyTag($query, $tagNames, $tagCategory = null)
+	public function scopeWithAnyTag($query, array $tagNames, $tagCategory = null)
 	{
-		if(!is_array($tagNames)) {
-			$tagNames = func_get_args();
-			array_shift($tagNames);
-		}
 
 		$className = $query->getModel()->getMorphClass();
 
@@ -371,7 +363,7 @@ trait Taggable
      * AutoTag post-save hook
      *
      * Tags model based on data stored in tmp property, or untags if manually
-     * set to falsey value
+     * set to false
      *
      * @return void
      *
