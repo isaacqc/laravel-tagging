@@ -1,5 +1,7 @@
 <?php namespace Conner\Tagging\Contracts;
 
+use Conner\Tagging\Model\Tag;
+
 /**
  * Intergace of utility functions to help with various tagging functionality.
  *
@@ -30,22 +32,6 @@ interface TaggingUtility
 	 * @return string
 	 */
 	public static function slug($str);
-		
-	/**
-	 * Private! Please do not call this function directly, just let the Tag library use it.
-	 * Increment count of tag by one. This function will create tag record if it does not exist.
-	 *
-	 * @param string $tagString
-	 */
-	public function incrementCount($tagString, $tagSlug, $tagCategory = null);
-	
-	/**
-	 * Private! Please do not call this function directly, let the Tag library use it.
-	 * Decrement count of tag by one. This function will create tag record if it does not exist.
-	 *
-	 * @param string $tagString
-	 */
-	public function decrementCount($tagId);
 	
 	/**
 	 * Look at the tags table and delete any tags that are no londer in use by any taggable database rows.
@@ -61,4 +47,7 @@ interface TaggingUtility
 	 * @return string
 	 */
 	public function tagModelString();
+
+
+	public function saveCount(Tag $tag);
 }

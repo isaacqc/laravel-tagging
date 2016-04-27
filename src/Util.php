@@ -1,5 +1,7 @@
 <?php namespace Conner\Tagging;
 
+use Conner\Tagging\Model\Tagged;
+use Conner\Tagging\Model\Tag;
 use Conner\Tagging\Contracts\TaggingUtility;
 
 /**
@@ -151,54 +153,12 @@ class Util implements TaggingUtility
 		return $options['lowercase'] ? mb_strtolower($str, 'UTF-8') : $str;
 	}
 	
-	/**
-	 * Private! Please do not call this function directly, just let the Tag library use it.
-	 * Increment count of tag by one. This function will create tag record if it does not exist.
-	 *
-	 * @param string $tagString
-	 */
-	public function incrementCount($tagString, $tagSlug, $tagCategory = null)
+	public function saveCount(Tag $tag)
 	{
 		$model = $this->tagModelString();
 		
-		$tag = $model::where('slug', '=', $tagSlug)
-			->where('category', '=', $tagCategory)
-			->first();
-
-		if(!$tag) {
-			$tag = new $model;
-			$tag->name = $tagString;
-			$tag->slug = $tagSlug;
-			$tag->category = $tagCategory;
-			$tag->suggest = false;
-			$tag->save();
-		}
-		
-		$tag->count = $tag->count + 1;
+		$tag->count = Tagged::where('tag_id', '=', $tag->id)->count();
 		$tag->save();
-
-		return $tag->id;
-	}
-	
-	/**
-	 * Private! Please do not call this function directly, let the Tag library use it.
-	 * Decrement count of tag by one. This function will create tag record if it does not exist.
-	 *
-	 */
-	public function decrementCount($tagId)
-	{
-		$model = $this->tagModelString();
-		
-		$tag = $model::where('id', '=', $tagId)->first();
-	
-		if($tag) {
-			$tag->count = $tag->count - 1;
-			if($tag->count < 0) {
-				$tag->count = 0;
-				\Log::warning("The '.$model.' count for `$tag->name` was a negative number. This probably means your data got corrupted. Please assess your code and report an issue if you find one.");
-			}
-			$tag->save();
-		}
 	}
 	
 	/**

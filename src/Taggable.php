@@ -266,14 +266,29 @@ trait Taggable
 		$displayer = config('tagging.displayer');
 		$displayer = empty($displayer) ? '\Illuminate\Support\Str::title' : $displayer;
 		
-		// incrememt count of the tag
-		$tagId = static::$taggingUtility->incrementCount($tagName, $tagSlug, $tagCategory);
+		// find if tag exist
+		$model = static::$taggingUtility->tagModelString();
+		$tag = $model::where('slug', '=', $tagSlug)
+			->where('category', '=', $tagCategory)
+			->first();
+
+		// create tag if not exist
+		if(!$tag) {
+			$tag = new $model;
+			$tag->name = call_user_func($displayer, $tagName);
+			$tag->slug = $tagSlug;
+			$tag->category = $tagCategory;
+			$tag->suggest = false;
+			$tag->save();
+		}
 
 		// create tagged for this taggable
 		$tagged = new Tagged(array(
-			'tag_id'=>$tagId,
+			'tag_id'=>$tag->id,
 		));
 		$this->tagged()->save($tagged);
+
+		static::$taggingUtility->saveCount($tag);
 
 		unset($this->relations['tagged']);
 		event(new TagAdded($this));
@@ -303,7 +318,7 @@ trait Taggable
 
 			// decrememnt count of tag if tagged can be removed
 			if($this->tagged()->where('tag_id', '=', $tag->id)->delete()) {
-				static::$taggingUtility->decrementCount($tag->id);
+				static::$taggingUtility->saveCount($tag);
 			}
 			
 			unset($this->relations['tagged']);
