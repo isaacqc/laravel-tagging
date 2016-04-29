@@ -338,7 +338,7 @@ trait Taggable
 			->where('category', '=', $tagCategory)
 			->where('taggable_type', '=', (new static)->getMorphClass())
 			->orderBy('slug', 'ASC')
-			->get(array('slug as slug', 'name as name', 'count as count'));
+			->get(['tagging_tags.*']);
 	}
 	
 	/**
