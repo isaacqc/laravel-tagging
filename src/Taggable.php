@@ -106,11 +106,18 @@ trait Taggable
 	 *
 	 * @return array
 	 */
-	public function tagNames($tagCategory = null)
+	public function tagNames($tagCategory = null, $is_suggest = null)
 	{
 		return $this->tagged
-			->filter(function ($item) use ($tagCategory) {
-				return $item->tag && $item->tag->category == $tagCategory;
+			->filter(function ($item) use ($tagCategory, $is_suggest) {
+
+				if (!$item->tag)
+					return false;
+
+				if ($is_suggest != null && $item->tag->suggest != $is_suggest) 
+					return false;
+
+				return $item->tag->category == $tagCategory;
 			})
 			->map(function($item){
 				return $item->tag->name;
@@ -122,11 +129,18 @@ trait Taggable
 	 *
 	 * @return array
 	 */
-	public function tagSlugs($tagCategory = null)
+	public function tagSlugs($tagCategory = null, $is_suggest = null)
 	{
 		return $this->tagged
-			->filter(function ($item) use ($tagCategory) {
-				return $item->tag && $item->tag->category == $tagCategory;
+			->filter(function ($item) use ($tagCategory, $is_suggest) {
+
+				if (!$item->tag)
+					return false;
+
+				if ($is_suggest != null && $item->tag->suggest != $is_suggest) 
+					return false;
+
+				return $item->tag->category == $tagCategory;
 			})
 			->map(function($item){
 				return $item->tag->slug;
@@ -331,12 +345,18 @@ trait Taggable
 	 *
 	 * @return Collection
 	 */
-	public static function existingTags($tagCategory = null)
+	public static function existingTags($tagCategory = null, $is_suggest = null)
 	{
-		return Tagged::distinct()
-			->join('tagging_tags', 'tag_id', '=', 'tagging_tags.id')
+		$query = Tag::distinct()
+			->join('tagging_tagged', 'tagging_tagged.tag_id', '=', 'tagging_tags.id')
 			->where('category', '=', $tagCategory)
-			->where('taggable_type', '=', (new static)->getMorphClass())
+			->where('tagging_tagged.taggable_type', '=', (new static)->getMorphClass());
+
+		if (!is_null($is_suggest)) {
+			$query = $query->where('suggest', '=', $is_suggest);
+		}
+
+		return $query = $query
 			->orderBy('slug', 'ASC')
 			->get(['tagging_tags.*']);
 	}
