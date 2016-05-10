@@ -27,6 +27,13 @@ class Tag extends Eloquent
 		
 		$this->taggingUtility = app(TaggingUtility::class);
 	}
+
+
+	public function tagged()
+	{
+		$model = $this->taggingUtility->taggedModelString();
+		return $this->hasMany($model);
+	}
 	
 	/**
 	 * (non-PHPdoc)
@@ -84,5 +91,27 @@ class Tag extends Eloquent
 				->where('suggest', false)
 				->delete();
 	}
-	
+
+
+	/**
+	 * Return an array of all of the tags that are in use by this model
+	 *
+	 * @return Collection
+	 */
+	public function scopeExistingTags($query, $tagCategory = null, $is_suggest = null)
+	{
+		$query = $query->where('category', '=', $tagCategory);
+
+		if (!is_null($is_suggest)) {
+			$query = $query->where('suggest', '=', $is_suggest);
+		}
+		
+		return $query;
+	}
+
+	public function saveCount()
+	{
+		$this->count = $this->tagged->count();
+		$this->save();
+	}
 }

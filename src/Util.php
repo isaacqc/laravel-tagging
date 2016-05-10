@@ -153,14 +153,6 @@ class Util implements TaggingUtility
 		return $options['lowercase'] ? mb_strtolower($str, 'UTF-8') : $str;
 	}
 	
-	public function saveCount(Tag $tag)
-	{
-		$model = $this->tagModelString();
-		
-		$tag->count = Tagged::where('tag_id', '=', $tag->id)->count();
-		$tag->save();
-	}
-	
 	/**
 	 * Look at the tags table and delete any tags that are no londer in use by any taggable database rows.
 	 * Does not delete tags where 'suggest' is true
@@ -179,5 +171,13 @@ class Util implements TaggingUtility
 	public function tagModelString()
 	{
 		return config('tagging.tag_model', '\Conner\Tagging\Model\Tag');
+	}
+
+	/**
+	 * @return string
+	 */
+	public function taggedModelString()
+	{
+		return config('tagging.tagged_model', '\Conner\Tagging\Model\Tagged');
 	}
 }

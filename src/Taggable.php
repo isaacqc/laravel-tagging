@@ -302,7 +302,8 @@ trait Taggable
 		));
 		$this->tagged()->save($tagged);
 
-		static::$taggingUtility->saveCount($tag);
+		$tag->fresh();
+		$tag->saveCount();
 
 		unset($this->relations['tagged']);
 		event(new TagAdded($this));
@@ -332,33 +333,12 @@ trait Taggable
 
 			// decrememnt count of tag if tagged can be removed
 			if($this->tagged()->where('tag_id', '=', $tag->id)->delete()) {
-				static::$taggingUtility->saveCount($tag);
+				$tag->saveCount();
 			}
 			
 			unset($this->relations['tagged']);
 			event(new TagRemoved($this));
 		}
-	}
-
-	/**
-	 * Return an array of all of the tags that are in use by this model
-	 *
-	 * @return Collection
-	 */
-	public static function existingTags($tagCategory = null, $is_suggest = null)
-	{
-		$query = Tag::distinct()
-			->join('tagging_tagged', 'tagging_tagged.tag_id', '=', 'tagging_tags.id')
-			->where('category', '=', $tagCategory)
-			->where('tagging_tagged.taggable_type', '=', (new static)->getMorphClass());
-
-		if (!is_null($is_suggest)) {
-			$query = $query->where('suggest', '=', $is_suggest);
-		}
-
-		return $query = $query
-			->orderBy('slug', 'ASC')
-			->get(['tagging_tags.*']);
 	}
 	
 	/**

@@ -48,6 +48,12 @@ interface TaggingUtility
 	 */
 	public function tagModelString();
 
+	/**
+	 * Return string with full namespace of the Tagged model
+	 *
+	 * @return string
+	 */
+	public function taggedModelString();
 
-	public function saveCount(Tag $tag);
+
 }
