@@ -277,24 +277,8 @@ trait Taggable
 			if($previousCount >= 1) { return; }
 		}
 		
-		$displayer = config('tagging.displayer');
-		$displayer = empty($displayer) ? '\Illuminate\Support\Str::title' : $displayer;
-		
-		// find if tag exist
-		$model = static::$taggingUtility->tagModelString();
-		$tag = $model::where('slug', '=', $tagSlug)
-			->where('category', '=', $tagCategory)
-			->first();
-
-		// create tag if not exist
-		if(!$tag) {
-			$tag = new $model;
-			$tag->name = call_user_func($displayer, $tagName);
-			$tag->slug = $tagSlug;
-			$tag->category = $tagCategory;
-			$tag->suggest = false;
-			$tag->save();
-		}
+		// retrieve tag (or create one if not exist)
+		$tag = static::$taggingUtility->retrieveOrCreateTag($tagSlug, $tagName, $tagCategory);
 
 		// create tagged for this taggable
 		$tagged = new Tagged(array(
@@ -302,7 +286,6 @@ trait Taggable
 		));
 		$this->tagged()->save($tagged);
 
-		$tag->fresh();
 		$tag->saveCount();
 
 		unset($this->relations['tagged']);

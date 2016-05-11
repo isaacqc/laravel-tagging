@@ -114,4 +114,5 @@ class Tag extends Eloquent
 		$this->count = $this->tagged->count();
 		$this->save();
 	}
+	
 }

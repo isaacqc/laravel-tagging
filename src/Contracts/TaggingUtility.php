@@ -55,5 +55,26 @@ interface TaggingUtility
 	 */
 	public function taggedModelString();
 
+	/**
+	 * Retrieve or create a tag
+	 *
+	 * @author Isaac Chan
+	 *
+	 * @param string $tagSlug
+	 * @param string $tagName
+	 * @param string $tagCategory
+	 * @return Tag
+	 */
+	public function retrieveOrCreateTag($tagSlug, $tagName, $tagCategory);
+
+	/**
+	 * Remove a tag
+	 *
+	 * @author Isaac Chan
+	 *
+	 * @param string $tagId
+	 * @return Tag
+	 */
+	public function removeTag($tagId);
 
 }

@@ -180,4 +180,47 @@ class Util implements TaggingUtility
 	{
 		return config('tagging.tagged_model', '\Conner\Tagging\Model\Tagged');
 	}
+
+
+	public function retrieveOrCreateTag($tagSlug, $tagName, $tagCategory) {
+		
+		$displayer = config('tagging.displayer');
+		$displayer = empty($displayer) ? '\Illuminate\Support\Str::title' : $displayer;
+		$model = (new self())->tagModelString();
+
+		$tag = $model::where('slug', '=', $tagSlug)
+			->where('category', '=', $tagCategory)
+			->first();
+
+		// create tag if not exist
+		if(!$tag) {
+			$tag = new $model;
+			$tag->name = call_user_func($displayer, $tagName);
+			$tag->slug = $tagSlug;
+			$tag->category = $tagCategory;
+			$tag->suggest = false;
+			$tag->save();
+			$tag->fresh();
+		}
+		return $tag;
+	}
+
+	public function removeTag($tagId) {
+
+		$model = (new self())->tagModelString();
+
+		$tag = $model::find($tagId);
+
+		// remove tag and its taggeds
+		if ($tag) {
+			// start db transaction -> so that booking and payment are to be created together
+			\DB::transaction(function() use (&$tag)
+			{
+				$tag->tagged()->delete();
+				$tag->delete();
+			});
+	        // end db transaction
+		}
+
+	}
 }
