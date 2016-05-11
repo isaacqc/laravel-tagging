@@ -77,4 +77,15 @@ interface TaggingUtility
 	 */
 	public function removeTag($tagId);
 
+
+	/**
+	 * Rename a tag
+	 *
+	 * @author Isaac Chan
+	 *
+	 * @param string $tagId
+	 * @return Tag
+	 */
+	public function renameTag($tagId, $tagName);
+
 }

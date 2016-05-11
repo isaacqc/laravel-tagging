@@ -221,6 +221,42 @@ class Util implements TaggingUtility
 			});
 	        // end db transaction
 		}
+	}
 
+	public function renameTag($tagId, $tagName) {
+
+		$result = false;
+		
+		$model = (new self())->tagModelString();
+		$tag = $model::find($tagId);
+
+		// remove tag and its taggeds
+		if ($tag) {
+			
+			$tagSlug = (new self())->slug($tagName);
+
+			// start db transaction -> so that booking and payment are to be created together
+			$result = \DB::transaction(function() use (&$tag, $tagSlug, $tagName, $model)
+			{
+				// find if tag name already exists
+				$previousCount = $model::where('slug', '=', $tagSlug)
+					->where('category', '=', $tag->category)
+					->take(1)->count();
+
+				// if the tag is found
+				if($previousCount == 0) {
+					$tag->name = $tagName;
+					$tag->slug = $tagSlug;
+					$tag->save();
+					return true;
+				}
+				
+				return false;
+
+			});
+	        // end db transaction
+		}
+
+	    return $result;
 	}
 }
