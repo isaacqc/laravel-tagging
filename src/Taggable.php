@@ -211,7 +211,7 @@ trait Taggable
 				->where('slug', call_user_func($normalizer, $tagSlug))
 				->where('category', '=', $tagCategory)
 				->where('taggable_type', $className)
-				->lists('taggable_id');
+				->pluck('taggable_id');
 		
 			$primaryKey = $this->getKeyName();
 			$query->whereIn($this->getTable().'.'.$primaryKey, $taggeds);
